@@ -8,13 +8,12 @@ module Player
     Game (..),
     Direction (..),
     dead,
-    food,
     score,
     player,
     height,
     width,
     movePlayer,
-    goodFood
+    blocks,
   )
 where
 
@@ -24,12 +23,12 @@ import Control.Monad (guard)
 import Control.Monad.Extra (orM)
 import Control.Monad.Trans.Maybe
 import Control.Monad.Trans.State
+import Data.List
 import Data.Maybe (fromMaybe)
 import Data.Sequence (Seq (..), (<|))
 import qualified Data.Sequence as S
 import Linear.V2 (V2 (..), _x, _y)
-import System.Random (Random (..), newStdGen)
-import Data.List
+import System.Random (Random (..), RandomGen, mkStdGen, newStdGen)
 
 -- Types
 
@@ -38,10 +37,6 @@ data Game = Game
     _player :: Player,
     -- | direction
     _dir :: Direction,
-    -- | location of the food
-    _food :: Coord,
-    -- | infinite list of random next food locations
-    _foods :: Stream Coord,
     -- | game over flag
     _dead :: Bool,
     -- | paused flag
@@ -50,7 +45,9 @@ data Game = Game
     _score :: Int,
     -- | lock to disallow duplicate turns between time steps
     _locked :: Bool,
-    _goodFood :: GoodFood
+    _blocks :: Blocks,
+    _blockStore :: Stream Coord,
+    _blockGap :: Int
   }
   deriving (Show)
 
@@ -61,8 +58,7 @@ type Player = Coord
 data Stream a = a :| Stream a
   deriving (Show)
 
-type GoodFood = Seq Coord
-
+type Blocks = Seq Coord
 
 data Direction
   = North
@@ -75,21 +71,24 @@ makeLenses ''Game
 
 -- Constants
 
-height, width, initialGoodFoodCount :: Int
+height, width, initialBlocksCount, targetBlockGap :: Int
 height = 20
 width = 20
-initialGoodFoodCount = 5
+initialBlocksCount = 5
+targetBlockGap = 3
 
 -- Functions
 
 -- | Step forward in time
 step :: Game -> Game
 step s = flip execState s . runMaybeT $ do
-  -- Make sure the game isn't paused or over
-  MaybeT $ guard . not <$> orM [use paused, use dead]
-
-  -- Unlock from last directional turn
-  MaybeT . fmap Just $ locked .= False
+  -- -- Make sure the game isn't paused or over
+  -- MaybeT $ guard . not <$> orM [use paused, use dead]
+  -- -- Unlock from last directional turn
+  -- MaybeT . fmap Just $ locked .= False
+  MaybeT (Just <$> modify moveBlocks)
+  MaybeT (Just <$> modify nextBlock)
+  MaybeT (Just <$> modify updateBlockGap)
 
 -- die (moved into boundary), eat (moved into food), or move (move into space)
 -- die <|> MaybeT (Just <$> modify move)
@@ -110,13 +109,16 @@ step s = flip execState s . runMaybeT $ do
 --     nextFood
 
 -- | Set a valid next food coordinate
--- nextFood :: State Game ()
--- nextFood = do
---   (f :| fs) <- use foods
---   foods .= fs
---   elem f <$> use snake >>= \case
---     True -> nextFood
---     False -> food .= f
+nextBlock :: Game -> Game
+nextBlock g = g' & blocks .~ newCoordSeq
+  where
+    (b :| bs) = g ^. blockStore
+    g' = g & blockStore .~ bs
+    newCoordSeq = do
+      if g ^. blockGap == targetBlockGap
+        then S.insertAt 0 b (g' ^. blocks)
+        else g ^. blocks
+
 isInBounds :: Coord -> Bool
 isInBounds (V2 x y) = 0 <= x && x < width && 0 <= y
 
@@ -126,8 +128,8 @@ shift = translateCoord 1 South
 translateCoord :: Int -> Direction -> Coord -> Coord
 translateCoord n West (V2 x y) = V2 (x - n) y
 translateCoord n East (V2 x y) = V2 (x + n) y
-translateCoord n North (V2 x y) = V2 x (y - n)
-translateCoord n South (V2 x y) = V2 x (y + n)
+translateCoord n North (V2 x y) = V2 x (y + n)
+translateCoord n South (V2 x y) = V2 x (y - n)
 
 movePlayer :: Direction -> Game -> Game
 movePlayer dir g@Game {_player = t} = do
@@ -137,48 +139,36 @@ movePlayer dir g@Game {_player = t} = do
     else g
 movePlayer _ _ = error "Players can't be empty!"
 
--- | Get next head position of the snake
--- nextHead :: Game -> Coord
--- nextHead Game {_dir = d, _snake = (a :<| _)}
---   | d == North = a & _y %~ (\y -> (y + 1) `mod` height)
---   | d == South = a & _y %~ (\y -> (y - 1) `mod` height)
---   | d == East = a & _x %~ (\x -> (x + 1) `mod` width)
---   | d == West = a & _x %~ (\x -> (x - 1) `mod` width)
--- nextHead _ = error "Snakes can't be empty!"
+moveBlocks :: Game -> Game
+moveBlocks g = g & blocks .~ newCoordSeq
+  where
+    f _ a = translateCoord 1 South a
+    newCoordSeq = S.filter isInBounds (S.mapWithIndex f (g ^. blocks))
 
--- | Turn game direction (only turns orthogonally)
---
--- Implicitly unpauses yet locks game
--- turn :: Direction -> Game -> Game
--- turn d g =
---   if g ^. locked
---     then g
---     else g & dir %~ turnDir d & paused .~ False & locked .~ True
-
--- turnDir :: Direction -> Direction -> Direction
--- turnDir n c
---   | c `elem` [North, South] && n `elem` [East, West] = n
---   | c `elem` [East, West] && n `elem` [East, West] = n
---   | otherwise = c
+updateBlockGap :: Game -> Game
+updateBlockGap g = g & blockGap .~ newGap
+  where
+    newGap = do
+      if g ^. blockGap == targetBlockGap
+        then 0
+        else g ^. blockGap + 1
 
 -- | Initialize a paused game with random food location
 initGame :: IO Game
 initGame = do
-  randomList <-  randomRs (V2 0 ((height - 1) `div` 2), V2 (width - 1) (height - 1)) <$> newStdGen
-
-  (f :| fs) <-
-    fromList . randomRs (V2 0 (height - 1), V2 (width - 1) (height - 1)) <$> newStdGen
+  (b :| bs) <-
+    fromList . randomRs (V2 0 height, V2 width height) <$> newStdGen
   let g =
         Game
           { _player = V2 (width `div` 2) 0,
-            _food = f,
-            _foods = fs,
             _score = 0,
             _dir = East,
             _dead = False,
             _paused = True,
             _locked = False,
-            _goodFood = S.fromList (nub (take initialGoodFoodCount  randomList))
+            _blocks = S.fromList [b],
+            _blockStore = bs,
+            _blockGap = 0
           }
   return g
 

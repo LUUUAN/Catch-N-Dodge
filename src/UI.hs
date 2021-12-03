@@ -60,7 +60,7 @@ data Tick = Tick
 -- if we call this "Name" now.
 type Name = ()
 
-data Cell = Player | Food | Empty | GoodFood
+data Cell = Player | Empty | Blocks
 
 -- App definition
 
@@ -80,7 +80,7 @@ main = do
   forkIO $
     forever $ do
       writeBChan chan Tick
-      threadDelay 100000 -- decides how fast your game moves
+      threadDelay 300000 -- decides how fast your game moves
   g <- initGame
   let builder = V.mkVty V.defaultConfig
   initialVty <- builder
@@ -90,14 +90,8 @@ main = do
 
 handleEvent :: Game -> BrickEvent Name Tick -> EventM Name (Next Game)
 handleEvent g (AppEvent Tick) = continue $ step g
--- handleEvent g (VtyEvent (V.EvKey V.KUp []))         = continue $ turn North g
--- handleEvent g (VtyEvent (V.EvKey V.KDown []))       = continue $ turn South g
 handleEvent g (VtyEvent (V.EvKey V.KRight [])) = continue $ movePlayer East g
 handleEvent g (VtyEvent (V.EvKey V.KLeft [])) = continue $ movePlayer West g
--- handleEvent g (VtyEvent (V.EvKey (V.KChar 'k') [])) = continue $ turn North g
--- handleEvent g (VtyEvent (V.EvKey (V.KChar 'j') [])) = continue $ turn South g
--- handleEvent g (VtyEvent (V.EvKey (V.KChar 'l') [])) = continue $ turn East g
--- handleEvent g (VtyEvent (V.EvKey (V.KChar 'h') [])) = continue $ turn West g
 handleEvent g (VtyEvent (V.EvKey (V.KChar 'r') [])) = liftIO (initGame) >>= continue
 handleEvent g (VtyEvent (V.EvKey (V.KChar 'q') [])) = halt g
 handleEvent g (VtyEvent (V.EvKey V.KEsc [])) = halt g
@@ -142,15 +136,13 @@ drawGrid g =
     drawCoord = drawCell . cellAt
     cellAt c
       | c == g ^. player = Player
-      | c == g ^. food = Food
-      | c `elem` g ^. goodFood  = GoodFood
+      | c `elem` g ^. blocks = Blocks
       | otherwise = Empty
 
 drawCell :: Cell -> Widget Name
 drawCell Player = withAttr playerAttr cw
-drawCell Food = withAttr foodAttr cw
 drawCell Empty = withAttr emptyAttr cw
-drawCell goodFood = withAttr goodFoodAttr cw
+drawCell blocks = withAttr blocksAttr cw
 
 cw :: Widget Name
 cw = str "  "
@@ -160,9 +152,8 @@ theMap =
   attrMap
     V.defAttr
     [ (playerAttr, V.blue `on` V.blue),
-      (foodAttr, V.red `on` V.red),
       (gameOverAttr, fg V.red `V.withStyle` V.bold),
-      (goodFoodAttr, V.yellow  `on` V.yellow )
+      (blocksAttr, V.yellow `on` V.yellow)
     ]
 
 gameOverAttr :: AttrName
@@ -171,6 +162,6 @@ gameOverAttr = "gameOver"
 playerAttr, emptyAttr :: AttrName
 playerAttr = "playerAttr"
 
-foodAttr = "foodAttr"
-goodFoodAttr = "goodFoodAttr"
+blocksAttr = "blocksAttr"
+
 emptyAttr = "emptyAttr"
