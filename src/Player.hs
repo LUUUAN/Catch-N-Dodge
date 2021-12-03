@@ -14,6 +14,7 @@ module Player
     height,
     width,
     movePlayer,
+    goodFood
   )
 where
 
@@ -28,6 +29,7 @@ import Data.Sequence (Seq (..), (<|))
 import qualified Data.Sequence as S
 import Linear.V2 (V2 (..), _x, _y)
 import System.Random (Random (..), newStdGen)
+import Data.List
 
 -- Types
 
@@ -47,7 +49,8 @@ data Game = Game
     -- | score
     _score :: Int,
     -- | lock to disallow duplicate turns between time steps
-    _locked :: Bool
+    _locked :: Bool,
+    _goodFood :: GoodFood
   }
   deriving (Show)
 
@@ -57,6 +60,9 @@ type Player = Coord
 
 data Stream a = a :| Stream a
   deriving (Show)
+
+type GoodFood = Seq Coord
+
 
 data Direction
   = North
@@ -69,9 +75,10 @@ makeLenses ''Game
 
 -- Constants
 
-height, width :: Int
+height, width, initialGoodFoodCount :: Int
 height = 20
 width = 20
+initialGoodFoodCount = 5
 
 -- Functions
 
@@ -157,6 +164,8 @@ movePlayer _ _ = error "Players can't be empty!"
 -- | Initialize a paused game with random food location
 initGame :: IO Game
 initGame = do
+  randomList <-  randomRs (V2 0 ((height - 1) `div` 2), V2 (width - 1) (height - 1)) <$> newStdGen
+
   (f :| fs) <-
     fromList . randomRs (V2 0 (height - 1), V2 (width - 1) (height - 1)) <$> newStdGen
   let g =
@@ -168,7 +177,8 @@ initGame = do
             _dir = East,
             _dead = False,
             _paused = True,
-            _locked = False
+            _locked = False,
+            _goodFood = S.fromList (nub (take initialGoodFoodCount  randomList))
           }
   return g
 

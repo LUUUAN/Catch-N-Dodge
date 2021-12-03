@@ -60,7 +60,7 @@ data Tick = Tick
 -- if we call this "Name" now.
 type Name = ()
 
-data Cell = Player | Food | Empty
+data Cell = Player | Food | Empty | GoodFood
 
 -- App definition
 
@@ -143,12 +143,14 @@ drawGrid g =
     cellAt c
       | c == g ^. player = Player
       | c == g ^. food = Food
+      | c `elem` g ^. goodFood  = GoodFood
       | otherwise = Empty
 
 drawCell :: Cell -> Widget Name
 drawCell Player = withAttr playerAttr cw
 drawCell Food = withAttr foodAttr cw
 drawCell Empty = withAttr emptyAttr cw
+drawCell goodFood = withAttr goodFoodAttr cw
 
 cw :: Widget Name
 cw = str "  "
@@ -159,7 +161,8 @@ theMap =
     V.defAttr
     [ (playerAttr, V.blue `on` V.blue),
       (foodAttr, V.red `on` V.red),
-      (gameOverAttr, fg V.red `V.withStyle` V.bold)
+      (gameOverAttr, fg V.red `V.withStyle` V.bold),
+      (goodFoodAttr, V.yellow  `on` V.yellow )
     ]
 
 gameOverAttr :: AttrName
@@ -169,5 +172,5 @@ playerAttr, emptyAttr :: AttrName
 playerAttr = "playerAttr"
 
 foodAttr = "foodAttr"
-
+goodFoodAttr = "goodFoodAttr"
 emptyAttr = "emptyAttr"
