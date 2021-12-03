@@ -92,8 +92,8 @@ handleEvent :: Game -> BrickEvent Name Tick -> EventM Name (Next Game)
 handleEvent g (AppEvent Tick) = continue $ step g
 -- handleEvent g (VtyEvent (V.EvKey V.KUp []))         = continue $ turn North g
 -- handleEvent g (VtyEvent (V.EvKey V.KDown []))       = continue $ turn South g
-handleEvent g (VtyEvent (V.EvKey V.KRight [])) = continue $ translatePlayer g 1 East
-handleEvent g (VtyEvent (V.EvKey V.KLeft [])) = continue $ translatePlayer g 1 West
+handleEvent g (VtyEvent (V.EvKey V.KRight [])) = continue $ movePlayer East g
+handleEvent g (VtyEvent (V.EvKey V.KLeft [])) = continue $ movePlayer West g
 -- handleEvent g (VtyEvent (V.EvKey (V.KChar 'k') [])) = continue $ turn North g
 -- handleEvent g (VtyEvent (V.EvKey (V.KChar 'j') [])) = continue $ turn South g
 -- handleEvent g (VtyEvent (V.EvKey (V.KChar 'l') [])) = continue $ turn East g

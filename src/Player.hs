@@ -13,7 +13,7 @@ module Player
     player,
     height,
     width,
-    translatePlayer,
+    movePlayer,
   )
 where
 
@@ -110,6 +110,9 @@ step s = flip execState s . runMaybeT $ do
 --   elem f <$> use snake >>= \case
 --     True -> nextFood
 --     False -> food .= f
+isInBounds :: Coord -> Bool
+isInBounds (V2 x y) = 0 <= x && x < width && 0 <= y
+
 shift :: Coord -> Coord
 shift = translateCoord 1 South
 
@@ -119,9 +122,13 @@ translateCoord n East (V2 x y) = V2 (x + n) y
 translateCoord n North (V2 x y) = V2 x (y - n)
 translateCoord n South (V2 x y) = V2 x (y + n)
 
-translatePlayer :: Game -> Int -> Direction -> Game
-translatePlayer g@Game {_player = t} n dir = g & player .~ translateCoord n dir t
-translatePlayer _ _ _ = error "Players can't be empty!"
+movePlayer :: Direction -> Game -> Game
+movePlayer dir g@Game {_player = t} = do
+  let newCoord = translateCoord 1 dir t
+  if isInBounds newCoord
+    then g & player .~ newCoord
+    else g
+movePlayer _ _ = error "Players can't be empty!"
 
 -- | Get next head position of the snake
 -- nextHead :: Game -> Coord
@@ -152,11 +159,9 @@ initGame :: IO Game
 initGame = do
   (f :| fs) <-
     fromList . randomRs (V2 0 (height - 1), V2 (width - 1) (height - 1)) <$> newStdGen
-  let xm = width `div` 2
-      ym = (height `div` 4)
-      g =
+  let g =
         Game
-          { _player = V2 xm ym,
+          { _player = V2 (width `div` 2) 0,
             _food = f,
             _foods = fs,
             _score = 0,
