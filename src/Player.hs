@@ -86,6 +86,7 @@ step s = flip execState s . runMaybeT $ do
   -- MaybeT $ guard . not <$> orM [use paused, use dead]
   -- -- Unlock from last directional turn
   -- MaybeT . fmap Just $ locked .= False
+  MaybeT (Just <$> modify consumeGoodBlocks)
   MaybeT (Just <$> modify moveBlocks)
   MaybeT (Just <$> modify nextBlock)
   MaybeT (Just <$> modify updateBlockGap)
@@ -99,14 +100,17 @@ step s = flip execState s . runMaybeT $ do
 --   MaybeT . fmap guard $ elem <$> (nextHead <$> get) <*> (use snake)
 --   MaybeT . fmap Just $ dead .= True
 
--- | Possibly eat food if next head position is food
--- eatFood :: MaybeT (State Game) ()
--- eatFood = do
---   MaybeT . fmap guard $ (==) <$> (nextHead <$> get) <*> (use food)
---   MaybeT . fmap Just $ do
---     modifying score (+ 10)
---     get >>= \g -> modifying snake (nextHead g <|)
---     nextFood
+-- | If consume a good block, we add 10 points to the total score
+consumeGoodBlocks :: Game -> Game 
+consumeGoodBlocks g = g & score .~ newScore
+  where 
+    newScore = case S.elemIndexL (g^.player) (g^.blocks) of
+      Nothing -> g^.score 
+      Just _ -> g^.score + 10
+     
+
+sameCoord :: Coord -> Coord -> Bool
+sameCoord coordA coordB = coordA == coordB
 
 -- | Set a valid next food coordinate
 nextBlock :: Game -> Game
