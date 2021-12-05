@@ -187,7 +187,7 @@ initGame = do
             _blocks = S.fromList [b],
             _blockStore = bs,
             _blockGap = 0,
-            _counter = 500,
+            _counter = 100,
             _curProgress = 0
           }
   return g
