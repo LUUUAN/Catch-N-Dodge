@@ -14,6 +14,8 @@ module Player
     width,
     movePlayer,
     blocks,
+    counter,
+    curProgress,
   )
 where
 
@@ -47,7 +49,12 @@ data Game = Game
     _locked :: Bool,
     _blocks :: Blocks,
     _blockStore :: Stream Coord,
-    _blockGap :: Int
+    _blockGap :: Int,
+    --- Counter represents the count of the end game
+    --- if you want to player a longer game, set couter to some large values
+    _counter :: Float,
+    --- curProgress is incrmented by one / tick
+    _curProgress :: Float
   }
   deriving (Show)
 
@@ -82,12 +89,17 @@ targetBlockGap = 3
 -- | Step forward in time
 step :: Game -> Game
 step s = flip execState s . runMaybeT $ do
-  -- -- Make sure the game isn't paused or over
-  -- MaybeT $ guard . not <$> orM [use paused, use dead]
-  -- -- Unlock from last directional turn
-  -- MaybeT . fmap Just $ locked .= False
+  -- Make sure the game is not paused or game over
+  MaybeT $ guard . not <$> orM [use paused, use dead]
+  -- Update the score if the player cosume a good block
   MaybeT (Just <$> modify consumeGoodBlocks)
+  -- Increment the curProgress
+  MaybeT (Just <$> modify advanceTime) 
+  -- if the counter is equal to curProgress, then the game is over
+  MaybeT (Just <$> modify setGameOver)
+  --- Drop the blocks for each tick
   MaybeT (Just <$> modify moveBlocks)
+  --- Randomly Generate nextBlock
   MaybeT (Just <$> modify nextBlock)
   MaybeT (Just <$> modify updateBlockGap)
 
@@ -107,10 +119,12 @@ consumeGoodBlocks g = g & score .~ newScore
     newScore = case S.elemIndexL (g^.player) (g^.blocks) of
       Nothing -> g^.score 
       Just _ -> g^.score + 10
-     
 
-sameCoord :: Coord -> Coord -> Bool
-sameCoord coordA coordB = coordA == coordB
+advanceTime :: Game -> Game 
+advanceTime g = g & curProgress .~ ( (g ^. curProgress) + 1)
+
+setGameOver :: Game -> Game
+setGameOver g = if (g ^. counter) == (g ^. curProgress) then g & dead .~ True  else g
 
 -- | Set a valid next food coordinate
 nextBlock :: Game -> Game
@@ -168,11 +182,13 @@ initGame = do
             _score = 0,
             _dir = East,
             _dead = False,
-            _paused = True,
+            _paused = False ,
             _locked = False,
             _blocks = S.fromList [b],
             _blockStore = bs,
-            _blockGap = 0
+            _blockGap = 0,
+            _counter = 500,
+            _curProgress = 0
           }
   return g
 

@@ -46,6 +46,12 @@ import qualified Data.Sequence as S
 import qualified Graphics.Vty as V
 import Linear.V2 (V2 (..))
 import Player
+import qualified Brick.AttrMap as A
+import qualified Brick.Main as M
+import Brick.Widgets.Core
+import qualified Brick.Widgets.ProgressBar as P
+import Brick.Widgets.ProgressBar
+import Text.Printf (printf)
 
 -- Types
 
@@ -101,7 +107,7 @@ handleEvent g _ = continue g
 
 drawUI :: Game -> [Widget Name]
 drawUI g =
-  [C.center $ padRight (Pad 2) (drawStats g) <+> drawGrid g]
+  [(C.center$( padRight (Pad 2) (drawStats g) <+> drawGrid g)) <=> drawGameProgressBar g ]
 
 drawStats :: Game -> Widget Name
 drawStats g =
@@ -139,6 +145,15 @@ drawGrid g =
       | c `elem` g ^. blocks = Blocks
       | otherwise = Empty
 
+drawGameProgressBar :: Game -> Widget Name
+drawGameProgressBar g =
+  withBorderStyle BS.unicodeBold
+    . overrideAttr progressCompleteAttr                          gameProgressAttr
+    $ C.vCenter 
+    $ vLimit 5 
+    $ progressBar  (Just $ displayProgress  "Time Tick" percent) percent
+      where percent = (g ^. curProgress) / (g ^. counter)
+
 drawCell :: Cell -> Widget Name
 drawCell Player = withAttr playerAttr cw
 drawCell Empty = withAttr emptyAttr cw
@@ -153,7 +168,8 @@ theMap =
     V.defAttr
     [ (playerAttr, V.blue `on` V.blue),
       (gameOverAttr, fg V.red `V.withStyle` V.bold),
-      (blocksAttr, V.yellow `on` V.yellow)
+      (blocksAttr, V.yellow `on` V.yellow),
+      (gameProgressAttr       , V.white `on` V.red)
     ]
 
 gameOverAttr :: AttrName
@@ -165,3 +181,10 @@ playerAttr = "playerAttr"
 blocksAttr = "blocksAttr"
 
 emptyAttr = "emptyAttr"
+
+
+gameProgressAttr :: AttrName
+gameProgressAttr = "progress"
+
+displayProgress :: String -> Float -> String
+displayProgress w amt = printf "%s %.0f%%" w (amt * 100)
