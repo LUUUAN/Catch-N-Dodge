@@ -114,11 +114,14 @@ step s = flip execState s . runMaybeT $ do
 
 -- | If consume a good block, we add 10 points to the total score
 consumeGoodBlocks :: Game -> Game 
-consumeGoodBlocks g = g & score .~ newScore
+consumeGoodBlocks g = (g & score .~ newScore) & blocks .~ newBlocks
   where 
     newScore = case S.elemIndexL (g^.player) (g^.blocks) of
       Nothing -> g^.score 
       Just _ -> g^.score + 10
+    newBlocks = case S.elemIndexL (g^.player) (g^.blocks) of
+      Nothing -> g^.blocks
+      Just index -> S.deleteAt index (g^.blocks)
 
 advanceTime :: Game -> Game 
 advanceTime g = g & curProgress .~ ( (g ^. curProgress) + 1)
