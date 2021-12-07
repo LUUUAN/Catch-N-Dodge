@@ -32,25 +32,26 @@ import Brick
     withBorderStyle,
     (<+>),
   )
+import qualified Brick.AttrMap as A
 import Brick.BChan (newBChan, writeBChan)
+import qualified Brick.Main as M
 import qualified Brick.Widgets.Border as B
 import qualified Brick.Widgets.Border.Style as BS
 import qualified Brick.Widgets.Center as C
+import Brick.Widgets.Core
+import Brick.Widgets.ProgressBar
+import qualified Brick.Widgets.ProgressBar as P
 import Control.Concurrent (forkIO, threadDelay)
 import Control.Lens ((^.))
 import Control.Monad (forever, void)
 import Control.Monad.IO.Class (liftIO)
+import qualified Data.Map as M
 import Data.Maybe (fromMaybe)
 import Data.Sequence (Seq)
 import qualified Data.Sequence as S
 import qualified Graphics.Vty as V
 import Linear.V2 (V2 (..))
 import Player
-import qualified Brick.AttrMap as A
-import qualified Brick.Main as M
-import Brick.Widgets.Core
-import qualified Brick.Widgets.ProgressBar as P
-import Brick.Widgets.ProgressBar
 import Text.Printf (printf)
 
 -- Types
@@ -66,7 +67,7 @@ data Tick = Tick
 -- if we call this "Name" now.
 type Name = ()
 
-data Cell = Player | Empty | Blocks
+data Cell = Player | Empty | BadBlock | GoodBlock
 
 -- App definition
 
@@ -107,7 +108,7 @@ handleEvent g _ = continue g
 
 drawUI :: Game -> [Widget Name]
 drawUI g =
-  [(C.center$( padRight (Pad 2) (drawStats g) <+> drawGrid g)) <=> drawGameProgressBar g ]
+  [(C.center $(padRight (Pad 2) (drawStats g) <+> drawGrid g)) <=> drawGameProgressBar g]
 
 drawStats :: Game -> Widget Name
 drawStats g =
@@ -140,24 +141,42 @@ drawGrid g =
     rows = [hBox $ cellsInRow r | r <- [height -1, height -2 .. 0]]
     cellsInRow y = [drawCoord (V2 x y) | x <- [0 .. width -1]]
     drawCoord = drawCell . cellAt
+    flatBlks = flatBlocks (g ^. blocks)
+    isBad c = case S.elemIndexL c (fst flatBlks) of
+      Just idx ->
+        case S.lookup idx (snd flatBlks) of
+          Just isBad -> isBad == BAD
+          Nothing -> False
+      Nothing -> False
+    isGood c = case S.elemIndexL c (fst flatBlks) of
+      Just idx ->
+        case S.lookup idx (snd flatBlks) of
+          Just isBad -> isBad == GOOD
+          Nothing -> False
+      Nothing -> False
     cellAt c
       | c == g ^. player = Player
-      | c `elem` g ^. blocks = Blocks
+      | isBad c = BadBlock
+      | isGood c = GoodBlock
       | otherwise = Empty
 
 drawGameProgressBar :: Game -> Widget Name
 drawGameProgressBar g =
   withBorderStyle BS.unicodeBold
-    . overrideAttr progressCompleteAttr                          gameProgressAttr
-    $ C.vCenter 
-    $ vLimit 5 
-    $ progressBar  (Just $ displayProgress  "Time Tick" percent) percent
-      where percent = (g ^. curProgress) / (g ^. counter)
+    . overrideAttr progressCompleteAttr gameProgressAttr
+    $ C.vCenter $
+      vLimit 3 $
+        C.hCenter $
+          hLimit 45 $
+            progressBar (Just $ displayProgress "Time Tick" percent) percent
+  where
+    percent = (g ^. curProgress) / (g ^. counter)
 
 drawCell :: Cell -> Widget Name
 drawCell Player = withAttr playerAttr cw
 drawCell Empty = withAttr emptyAttr cw
-drawCell blocks = withAttr blocksAttr cw
+drawCell BadBlock = withAttr badBlocksAttr cw
+drawCell GoodBlock = withAttr goodBlocksAttr cw
 
 cw :: Widget Name
 cw = str "  "
@@ -168,8 +187,9 @@ theMap =
     V.defAttr
     [ (playerAttr, V.blue `on` V.blue),
       (gameOverAttr, fg V.red `V.withStyle` V.bold),
-      (blocksAttr, V.yellow `on` V.yellow),
-      (gameProgressAttr       , V.white `on` V.red)
+      (goodBlocksAttr, V.yellow `on` V.yellow),
+      (badBlocksAttr, V.red `on` V.red),
+      (gameProgressAttr, V.white `on` V.red)
     ]
 
 gameOverAttr :: AttrName
@@ -178,10 +198,12 @@ gameOverAttr = "gameOver"
 playerAttr, emptyAttr :: AttrName
 playerAttr = "playerAttr"
 
-blocksAttr = "blocksAttr"
+-- blocksAttr = "blocksAttr"
+badBlocksAttr = "badBlocksAttr"
+
+goodBlocksAttr = "goodBlocksAttr"
 
 emptyAttr = "emptyAttr"
-
 
 gameProgressAttr :: AttrName
 gameProgressAttr = "progress"
