@@ -141,23 +141,10 @@ drawGrid g =
     rows = [hBox $ cellsInRow r | r <- [height -1, height -2 .. 0]]
     cellsInRow y = [drawCoord (V2 x y) | x <- [0 .. width -1]]
     drawCoord = drawCell . cellAt
-    flatBlks = flatBlocks (g ^. blocks)
-    isBad c = case S.elemIndexL c (fst flatBlks) of
-      Just idx ->
-        case S.lookup idx (snd flatBlks) of
-          Just isBad -> isBad == BAD
-          Nothing -> False
-      Nothing -> False
-    isGood c = case S.elemIndexL c (fst flatBlks) of
-      Just idx ->
-        case S.lookup idx (snd flatBlks) of
-          Just isBad -> isBad == GOOD
-          Nothing -> False
-      Nothing -> False
     cellAt c
       | c == g ^. player = Player
-      | isBad c = BadBlock
-      | isGood c = GoodBlock
+      | c `elem` (g ^. badBlocks) = BadBlock
+      | c `elem` g ^. goodBlocks = GoodBlock
       | otherwise = Empty
 
 drawGameProgressBar :: Game -> Widget Name

@@ -13,11 +13,10 @@ module Player
     height,
     width,
     movePlayer,
-    blocks,
     counter,
     curProgress,
-    flatBlocks,
-    BlockType (..),
+    goodBlocks,
+    badBlocks,
   )
 where
 
@@ -43,21 +42,6 @@ type Player = Coord
 data Stream a = a :| Stream a
   deriving (Show)
 
-type Blocks = Seq Block
-
-data BlockType = GOOD | BAD
-  deriving (Eq, Show, Enum)
-
-data Block = Block
-  { -- | block type
-    _category :: BlockType,
-    -- | position
-    _pos :: Coord,
-  }
-  deriving (Eq, Show)
-
-makeLenses ''Block
-
 data Direction
   = North
   | South
@@ -78,16 +62,20 @@ data Game = Game
     _score :: Int,
     -- | lock to disallow duplicate turns between time steps
     _locked :: Bool,
-    -- | store all blocks currently appeared in the game
-    _blocks :: Blocks,
+    -- | Good Block delay time
+    _goodBlockDelay :: Int,
+    -- | store all good blocks currently appeared in the game
+    _goodBlocks :: Seq Coord,
+    -- | store all bad blocks currently appeared in the game
+    _badBlocks :: Seq Coord,
+    -- | predefined time gap between bad blocks (in terms of tick)
+    _badBlockGap :: Int,
     -- | store all blocks will appear in the game later
     _blockStore :: Stream Coord,
-    -- | predefined vertical gap between blocks
+    -- | predefined time gap between all blocks (in terms of tick)
     _blockGap :: Int,
-    -- | Output a bad block every badBlockGap blocks
-    _badBlockGap :: Int,
     --- Counter represents the count of the end game
-    --- if you want to player a longer game, set couter to some large values
+    --- if you want to player a longer game, set counter to some large values
     _counter :: Float,
     --- curProgress is incremented by one / tick
     _curProgress :: Float
@@ -98,12 +86,13 @@ makeLenses ''Game
 
 -- Constants
 
-height, width, initialBlocksCount, targetBlockGap, targetBadBlockGap :: Int
+height, width, initialBlocksCount, targetBlockGap, targetBadBlockGap, targetDelay :: Int
 height = 17
 width = 20
 initialBlocksCount = 5
 targetBlockGap = 3
 targetBadBlockGap = 3
+targetDelay = 1
 
 -- Functions
 
@@ -114,6 +103,8 @@ step s = flip execState s . runMaybeT $ do
   MaybeT $ guard . not <$> orM [use paused, use dead]
   -- Update the score if the player consume a good block
   MaybeT (Just <$> modify consumeGoodBlocks)
+  -- Update the score if the player consume a bad block
+  MaybeT (Just <$> modify consumeBadBlocks)
   -- Increment the curProgress
   MaybeT (Just <$> modify advanceTime)
   -- if the counter is equal to curProgress, then the game is over
@@ -123,6 +114,7 @@ step s = flip execState s . runMaybeT $ do
   --- Randomly Generate nextBlock
   MaybeT (Just <$> modify nextBlock)
   MaybeT (Just <$> modify updateBlockGap)
+  MaybeT (Just <$> modify updateDelay)
 
 -- die (moved into boundary), eat (moved into food), or move (move into space)
 -- die <|> MaybeT (Just <$> modify move)
@@ -134,17 +126,31 @@ step s = flip execState s . runMaybeT $ do
 --   MaybeT . fmap Just $ dead .= True
 
 consumeGoodBlocks :: Game -> Game
-consumeGoodBlocks g = (g & score .~ newScore) & blocks .~ newBlocks
+consumeGoodBlocks g = (g & score .~ newScore) & goodBlocks .~ newGoodBlocks
   where
-    bs :|> b = g ^. blocks
+    bs :|> b = g ^. goodBlocks
     newScore
-      | g ^. player == b ^. pos && b ^. category == GOOD = g ^. score + 10
-      | g ^. player == b ^. pos && b ^. category == BAD = g ^. score - 20
+      | g ^. player == b = g ^. score + 10
       | otherwise = g ^. score
-    newBlocks =
-      if g ^. player == b ^. pos
-        then S.deleteAt (S.length (g ^. blocks) - 1) (g ^. blocks)
-        else g ^. blocks
+    newGoodBlocks =
+      if g ^. player == b
+        then S.deleteAt (S.length (g ^. goodBlocks) - 1) (g ^. goodBlocks)
+        else g ^. goodBlocks
+
+consumeBadBlocks :: Game -> Game
+consumeBadBlocks g =
+  if null (g ^. badBlocks)
+    then g
+    else (g & score .~ newScore) & badBlocks .~ newBadBlocks
+  where
+    bs :|> b = g ^. badBlocks
+    newScore
+      | g ^. player == b = g ^. score - 20
+      | otherwise = g ^. score
+    newBadBlocks =
+      if g ^. player == b
+        then S.deleteAt (S.length (g ^. badBlocks) - 1) (g ^. badBlocks)
+        else g ^. badBlocks
 
 advanceTime :: Game -> Game
 advanceTime g = g & curProgress .~ ((g ^. curProgress) + 1)
@@ -154,23 +160,24 @@ setGameOver g = if (g ^. counter) == (g ^. curProgress) then g & dead .~ True el
 
 -- | Insert a new block at the top of the game if blockGap satisfied
 nextBlock :: Game -> Game
-nextBlock g = g' & blocks .~ newBlockSeq
+nextBlock g = (g' & goodBlocks .~ newGoodBlocks) & badBlocks .~ newBadBlocks
   where
     (b :| bs) = g ^. blockStore
     g' = g & blockStore .~ bs
-    newBlockSeq = do
-      if g ^. blockGap == targetBlockGap && g ^. badBlockGap == targetBadBlockGap
-        then S.insertAt 0 (Block BAD b) (g' ^. blocks)
-        else
-          if g ^. blockGap == targetBlockGap
-            then S.insertAt 0 (Block GOOD b) (g' ^. blocks)
-            else g ^. blocks
+    newBadBlocks = do
+      if g ^. badBlockGap == targetBadBlockGap && g ^. blockGap == targetBlockGap
+        then S.insertAt 0 b (g' ^. badBlocks)
+        else g ^. badBlocks
+    newGoodBlocks = do
+      if g ^. blockGap == targetBlockGap
+        then
+          if g ^. badBlockGap == targetBadBlockGap
+            then g ^. goodBlocks
+            else S.insertAt 0 b (g ^. goodBlocks)
+        else g ^. goodBlocks
 
 isInBounds :: Coord -> Bool
 isInBounds (V2 x y) = 0 <= x && x < width && 0 <= y
-
-blockInBounds :: Block -> Bool
-blockInBounds b = isInBounds (b ^. pos)
 
 shift :: Coord -> Coord
 shift = translateCoord 1 South
@@ -191,11 +198,15 @@ movePlayer _ _ = error "Players can't be empty!"
 
 -- | Gravitate the block
 moveBlocks :: Game -> Game
-moveBlocks g = g & blocks .~ newBlocks
+moveBlocks g = (g & goodBlocks .~ newGoodBlocks) & badBlocks .~ newBadBlocks
   where
-    f _ blk = blk & pos .~ translateCoord 1 South (blk ^. pos)
+    f _ blk = translateCoord 1 South blk
     -- newBlocks = S.mapWithIndex f (g ^. blocks)
-    newBlocks = S.filter blockInBounds (S.mapWithIndex f (g ^. blocks))
+    newBadBlocks = S.filter isInBounds (S.mapWithIndex f (g ^. badBlocks))
+    newGoodBlocks =
+      if g ^. goodBlockDelay == targetDelay
+        then S.filter isInBounds (S.mapWithIndex f (g ^. goodBlocks))
+        else g ^. goodBlocks
 
 updateBlockGap :: Game -> Game
 updateBlockGap g = (g & blockGap .~ newGap) & badBlockGap .~ newBBGap
@@ -212,11 +223,13 @@ updateBlockGap g = (g & blockGap .~ newGap) & badBlockGap .~ newBBGap
         then 0
         else g ^. blockGap + 1
 
-flatBlocks :: Blocks -> (Seq Coord, Seq BlockType)
-flatBlocks blks = S.unzipWith getBlockPos blks
-
-getBlockPos :: Block -> (Coord, BlockType)
-getBlockPos blk = (blk ^. pos, blk ^. category)
+updateDelay :: Game -> Game
+updateDelay g = g & goodBlockDelay .~ newDelay
+  where
+    newDelay = do
+      if g ^. goodBlockDelay == targetDelay
+        then 0
+        else g ^. goodBlockDelay + 1
 
 -- | Initialize a paused game with random block location
 initGame :: IO Game
@@ -231,12 +244,14 @@ initGame = do
             _dead = False,
             _paused = False,
             _locked = False,
-            _blocks = S.fromList [Block GOOD b],
-            _blockStore = bs,
+            _goodBlocks = S.fromList [b],
+            _badBlocks = S.fromList [],
             _blockGap = 0,
             _badBlockGap = 0,
+            _blockStore = bs,
             _counter = 100,
-            _curProgress = 0
+            _curProgress = 0,
+            _goodBlockDelay = 0
           }
   return g
 
