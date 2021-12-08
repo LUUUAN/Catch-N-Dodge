@@ -1,6 +1,6 @@
 # Running Instruction
 ``
-stack install game --local-bin-path ""
+stack install CnD --local-bin-path ""
 ``
 
 
