@@ -63,17 +63,18 @@ data Game = Game
     _score :: Int,
     -- | lock to disallow duplicate turns between time steps
     _locked :: Bool,
-    -- | Good Block delay time
-    _goodBlockDelay :: Int,
+    -- | good block counter in current iteration
+    _goodCntPerTurn :: Int,
+    -- | bad block counter in current iteration
+    _badCntPerTurn :: Int,
     -- | store all good blocks currently appeared in the game
     _goodBlocks :: Seq Coord,
+    _goodBlockDelay :: Int,
     -- | store all bad blocks currently appeared in the game
     _badBlocks :: Seq Coord,
-    -- | predefined time gap between bad blocks (in terms of tick)
-    _badBlockGap :: Int,
     -- | store all blocks will appear in the game later
     _blockStore :: Stream Coord,
-    -- | predefined time gap between all blocks (in terms of tick)
+    -- | predefined vertical gap between all blocks (in terms of tick)
     _blockGap :: Int,
     --- Counter represents the count of the end game
     --- if you want to player a longer game, set counter to some large values
@@ -89,13 +90,14 @@ makeLenses ''Game
 
 -- Constants
 
-height, width, initialBlocksCount, targetBlockGap, targetBadBlockGap, targetDelay :: Int
+height, width, initialBlocksCount, targetBlockGap, goodPerTurn, badPerTurn, targetGoodDelay :: Int
 height = 17
 width = 20
 initialBlocksCount = 5
 targetBlockGap = 3
-targetBadBlockGap = 3
-targetDelay = 1
+goodPerTurn = 3
+badPerTurn = 7
+targetGoodDelay = 2
 
 -- Functions
 
@@ -116,6 +118,7 @@ step s = flip execState s . runMaybeT $ do
   MaybeT (Just <$> modify moveBlocks)
   --- Randomly Generate nextBlock
   MaybeT (Just <$> modify nextBlock)
+  MaybeT (Just <$> modify updateBlockCnt)
   MaybeT (Just <$> modify updateBlockGap)
   MaybeT (Just <$> modify updateDelay)
 
@@ -167,16 +170,17 @@ nextBlock g = (g' & goodBlocks .~ newGoodBlocks) & badBlocks .~ newBadBlocks
   where
     (b :| bs) = g ^. blockStore
     g' = g & blockStore .~ bs
+    isBad = do
+      if g ^. badCntPerTurn < badPerTurn && g ^. goodCntPerTurn < goodPerTurn
+        then g ^. badCntPerTurn < g ^. goodCntPerTurn
+        else g ^. badCntPerTurn < badPerTurn
     newBadBlocks = do
-      if g ^. badBlockGap == targetBadBlockGap && g ^. blockGap == targetBlockGap
+      if isBad && g ^. blockGap == targetBlockGap
         then S.insertAt 0 b (g' ^. badBlocks)
         else g ^. badBlocks
     newGoodBlocks = do
-      if g ^. blockGap == targetBlockGap
-        then
-          if g ^. badBlockGap == targetBadBlockGap
-            then g ^. goodBlocks
-            else S.insertAt 0 b (g ^. goodBlocks)
+      if not isBad && g ^. blockGap == targetBlockGap
+        then S.insertAt 0 b (g ^. goodBlocks)
         else g ^. goodBlocks
 
 isInBounds :: Coord -> Bool
@@ -207,30 +211,51 @@ moveBlocks g = (g & goodBlocks .~ newGoodBlocks) & badBlocks .~ newBadBlocks
     -- newBlocks = S.mapWithIndex f (g ^. blocks)
     newBadBlocks = S.filter isInBounds (S.mapWithIndex f (g ^. badBlocks))
     newGoodBlocks =
-      if g ^. goodBlockDelay == targetDelay
+      if g ^. goodBlockDelay == targetGoodDelay
         then S.filter isInBounds (S.mapWithIndex f (g ^. goodBlocks))
         else g ^. goodBlocks
 
 updateBlockGap :: Game -> Game
-updateBlockGap g = (g & blockGap .~ newGap) & badBlockGap .~ newBBGap
+updateBlockGap g = g & blockGap .~ newGap
   where
-    newBBGap = do
-      if g ^. blockGap == targetBlockGap && g ^. badBlockGap == targetBadBlockGap
-        then 0
-        else
-          if g ^. blockGap == targetBlockGap
-            then g ^. badBlockGap + 1
-            else g ^. badBlockGap
     newGap = do
       if g ^. blockGap == targetBlockGap
         then 0
         else g ^. blockGap + 1
 
+updateBlockCnt :: Game -> Game
+updateBlockCnt g = (g & goodCntPerTurn .~ gCnt) & badCntPerTurn .~ bCnt
+  where
+    isBad = do
+      if g ^. badCntPerTurn < badPerTurn && g ^. goodCntPerTurn < goodPerTurn
+        then g ^. badCntPerTurn < g ^. goodCntPerTurn
+        else g ^. badCntPerTurn < badPerTurn
+    gCnt = do
+      if g ^. blockGap == targetBlockGap
+        then
+          if g ^. goodCntPerTurn + g ^. badCntPerTurn + 1 == goodPerTurn + badPerTurn
+            then 0
+            else
+              if not isBad
+                then g ^. goodCntPerTurn + 1
+                else g ^. goodCntPerTurn
+        else g ^. goodCntPerTurn
+    bCnt = do
+      if g ^. blockGap == targetBlockGap
+        then
+          if g ^. goodCntPerTurn + g ^. badCntPerTurn + 1 == goodPerTurn + badPerTurn
+            then 0
+            else
+              if isBad
+                then g ^. badCntPerTurn + 1
+                else g ^. badCntPerTurn
+        else g ^. badCntPerTurn
+
 updateDelay :: Game -> Game
 updateDelay g = g & goodBlockDelay .~ newDelay
   where
     newDelay = do
-      if g ^. goodBlockDelay == targetDelay
+      if g ^. goodBlockDelay == targetGoodDelay
         then 0
         else g ^. goodBlockDelay + 1
 
@@ -250,7 +275,8 @@ initGame lvl = do
             _goodBlocks = S.fromList [b],
             _badBlocks = S.fromList [],
             _blockGap = 0,
-            _badBlockGap = 0,
+            _badCntPerTurn = 0,
+            _goodCntPerTurn = 0,
             _blockStore = bs,
             _counter = 100,
             _curProgress = 0,
