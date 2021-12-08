@@ -5,7 +5,7 @@ stack install CnD --local-bin-path ""
 
 
 ``
-./game
+./CnD
 ``
 
 ##### Project Description
