@@ -111,7 +111,7 @@ handleEvent g _ = continue g
 
 drawUI :: Game -> [Widget Name]
 drawUI g =
-  [(C.center $ (padRight (Pad 2) (drawStats g) <+> drawGrid g)) <=> drawGameProgressBar g]
+  [((C.center $ (padRight (Pad 2) (drawStats g) <+> drawGrid g)) <=> drawGameProgressBar g) <+> padLeft (Pad 2) drawHelp]
 
 drawStats :: Game -> Widget Name
 drawStats g =
@@ -167,6 +167,35 @@ drawCell Player = withAttr playerAttr cw
 drawCell Empty = withAttr emptyAttr cw
 drawCell BadBlock = withAttr badBlocksAttr cw
 drawCell GoodBlock = withAttr goodBlocksAttr cw
+
+
+drawHelp :: Widget Name
+drawHelp =
+  withBorderStyle BS.unicodeBold
+    $ B.borderWithLabel (str "Help")
+    $ padTopBottom 1
+    --  $ C.hCenter 
+      -- $ padAll 1 
+        $ vLimit 30 
+          $ hLimit 30 
+             $ vBox
+              $ map (uncurry drawKeyInfo)
+              [ 
+                ("Move Left"   , "←")
+              , ("Move Right"  , "→")
+              , ("Restart Game", "r")
+              , ("Quit Game"   , "q")
+              , (" " , " ")
+              , ("Yellow Blocks",  "+10pt")
+              , ("Red Blocks",     "-20pt")
+
+              ]
+
+drawKeyInfo :: String -> String -> Widget Name
+drawKeyInfo action keys =
+  padRight Max (padLeft (Pad 1) $ str action)
+    <+> padLeft Max (padRight (Pad 1) $ str keys)
+
 
 cw :: Widget Name
 cw = str "  "
