@@ -24,6 +24,15 @@ The player can only use the "<-" and "->" to manipulate the character to move le
 
 # Mile Stone II
 ### Libraries
+We intend to use below libraries for this project.
+- `brick` : TUI library
+- `vty` : TUI library
+- `optparse-applicative`: Parse command line options
+- `containers`: Provide concrete container types
+- `directory`: For filesystem operations
+- `filepath`: Manipulate FilePaths
+- `random`: Generate pseudo-random number
+- `Exit`: Exit the game when the player no longer wants to play
 
 ### Project Structure
 
