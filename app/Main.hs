@@ -1,14 +1,15 @@
 module Main where
 
 import CnD (Game (..))
-import Control.Monad (when)
 import Options.Applicative
-import qualified System.Directory as D
-import System.Exit (exitSuccess)
-import System.FilePath ((</>))
-import Text.Read (readMaybe)
 import UI.Game (playGame)
 import UI.PickLevel (pickLevel)
+import System.IO
+-- import Control.Monad (when)
+-- import qualified System.Directory as D
+-- import System.Exit (exitSuccess)
+-- import System.FilePath ((</>))
+-- import Text.Read (readMaybe)
 
 data Opts = Opts
   { level :: Maybe Int,
@@ -43,42 +44,74 @@ fullopts =
 main :: IO ()
 main = do
   (Opts ml hs) <- execParser fullopts -- get CLI opts/args
-  when hs (getHighScore >>= printM >> exitSuccess) -- show high score and exit
+  -- when hs (getHighScore >>= printM >> exitSuccess) -- show high score and exit
   l <- maybe pickLevel return ml -- pick level prompt if necessary
-  g <- playGame l -- play game
-  handleEndGame (_score g) -- save & print score
+  prevScores <- readScores
+  g <- playGame l prevScores -- play game
+  handleEndGame (_score g) (_level g) (_highestScore g)-- save & print score
 
-handleEndGame :: Int -> IO ()
-handleEndGame s = do
-  mhs <- getHighScore
-  case mhs of
-    Nothing -> newHighScore
-    Just hs -> if s <= hs then justShowScore else newHighScore
+handleEndGame :: Int -> Int -> [Int] -> IO ()
+handleEndGame s l scores = do
+  let mhs = getHighScore l scores
+  if s <= mhs then justShowScore else newHighScore
   where
     justShowScore = putStrLn ("Your final score: " ++ show s)
     newHighScore = do
       putStrLn $ "Congrats! You just got the new highest score: " ++ show s
-      setHighScore s
+      let newScores = setHighScore s l scores
+      writeScores (scoresToString newScores)
 
 printM :: Show a => Maybe a -> IO ()
 printM Nothing = putStrLn "None"
 printM (Just s) = print s
 
-getHighScore :: IO (Maybe Int)
-getHighScore = do
-  lb <- getLeaderboardFile
-  exists <- D.doesFileExist lb
-  if exists
-    then readMaybe <$> readFile lb
-    else return Nothing
 
-setHighScore :: Int -> IO ()
-setHighScore s = do
-  lb <- getLeaderboardFile
-  writeFile lb (show s)
+writeScores :: String -> IO ()
+writeScores s = do 
+                scoreFile <- openFile "src/numbers.txt" WriteMode
+                hPutStrLn scoreFile s
+                hClose scoreFile
 
-getLeaderboardFile :: IO FilePath
-getLeaderboardFile = do
-  xdg <- D.getXdgDirectory D.XdgData "GameN"
-  D.createDirectoryIfMissing True xdg
-  return (xdg </> "leaderboard")
+scoresToString :: [Int] -> String 
+scoresToString [] = ""
+scoresToString (h:t) = show h ++ " " ++  scoresToString t
+
+getHighScore :: Int -> [Int] -> Int 
+getHighScore l scores = s
+  where (_,s:_) = splitAt l scores
+
+
+setHighScore :: Int -> Int -> [Int] -> [Int] 
+setHighScore newHighestScore l scores = s
+  where (x,_:y) = splitAt l scores
+        s = x ++ [newHighestScore] ++ y
+
+getNumbers :: String -> [Int]
+getNumbers str =  map (read::String->Int) (words str)
+
+readScores :: IO [Int]
+readScores = do
+    contents <- readFile "src/numbers.txt"
+    putStrLn contents
+    let numbers = getNumbers contents
+    return numbers
+
+
+-- getHighScore :: IO (Maybe Int)
+-- getHighScore = do
+--   lb <- getLeaderboardFile
+--   exists <- D.doesFileExist lb
+--   if exists
+--     then readMaybe <$> readFile lb
+--     else return Nothing
+
+-- setHighScore :: Int -> IO ()
+-- setHighScore s = do
+--   lb <- getLeaderboardFile
+--   writeFile lb (show s)
+
+-- getLeaderboardFile :: IO FilePath
+-- getLeaderboardFile = do
+--   xdg <- D.getXdgDirectory D.XdgData "GameN"
+--   D.createDirectoryIfMissing True xdg
+--   return (xdg </> "leaderboard")

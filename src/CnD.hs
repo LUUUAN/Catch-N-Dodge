@@ -18,6 +18,7 @@ module CnD
     goodBlocks,
     badBlocks,
     level,
+    highestScore,
   )
 where
 
@@ -33,6 +34,7 @@ import Data.Sequence (Seq (..), (<|))
 import qualified Data.Sequence as S
 import Linear.V2 (V2 (..), _x, _y)
 import System.Random (Random (..), RandomGen, mkStdGen, newStdGen)
+import System.IO
 
 -- Types
 
@@ -82,7 +84,8 @@ data Game = Game
     --- curProgress is incremented by one / tick
     _curProgress :: Float,
     -- | difficulty level from 0 to 9
-    _level :: Int
+    _level :: Int,
+    _highestScore :: [Int]
   }
   deriving (Show)
 
@@ -260,8 +263,8 @@ updateDelay g = g & goodBlockDelay .~ newDelay
         else g ^. goodBlockDelay + 1
 
 -- | Initialize a paused game with random block location
-initGame :: Int -> IO Game
-initGame lvl = do
+initGame :: Int -> [Int] -> IO Game
+initGame lvl scores = do
   (b :| bs) <-
     fromList . randomRs (V2 0 height, V2 width height) <$> newStdGen
   let g =
@@ -281,9 +284,17 @@ initGame lvl = do
             _counter = 100,
             _curProgress = 0,
             _goodBlockDelay = 0,
-            _level = lvl
+            _level = lvl,
+            _highestScore = scores
           }
   return g
 
 fromList :: [a] -> Stream a
 fromList = foldr (:|) (error "Streams must be infinite")
+
+
+-- updateHighestScore :: Game -> Game 
+-- updateHighestScore  g = g & highestScore .~ newHighestScore
+--                           where 
+--                             (x,prevScore:y) = splitAt (g ^. level) (g ^. highestScore)
+--                             newHighestScore = if (g ^. score) <=  prevScore then g ^. highestScore else x ++ [g ^. score] ++ y

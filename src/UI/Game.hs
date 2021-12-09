@@ -83,18 +83,19 @@ app =
 
 playGame ::
   -- | Starting level
-  Int ->
+  Int -> [Int] ->
   IO Game
-playGame lvl = do
+playGame lvl scores = do
   chan <- newBChan 10
   forkIO $
     forever $ do
       writeBChan chan Tick
       threadDelay 200000 -- decides how fast your game moves
-  initG <- initGame lvl
+  initG <- initGame lvl scores
   let builder = V.mkVty V.defaultConfig
   initialVty <- builder
   customMain initialVty builder (Just chan) app initG
+
 
 -- Handling events
 
@@ -102,7 +103,7 @@ handleEvent :: Game -> BrickEvent Name Tick -> EventM Name (Next Game)
 handleEvent g (AppEvent Tick) = continue $ step g
 handleEvent g (VtyEvent (V.EvKey V.KRight [])) = continue $ movePlayer East g
 handleEvent g (VtyEvent (V.EvKey V.KLeft [])) = continue $ movePlayer West g
-handleEvent g (VtyEvent (V.EvKey (V.KChar 'r') [])) = liftIO (initGame (g ^. level)) >>= continue
+handleEvent g (VtyEvent (V.EvKey (V.KChar 'r') [])) = liftIO (initGame (g ^. level) (g ^. highestScore )) >>= continue
 handleEvent g (VtyEvent (V.EvKey (V.KChar 'q') [])) = halt g
 handleEvent g (VtyEvent (V.EvKey V.KEsc [])) = halt g
 handleEvent g _ = continue g
@@ -117,7 +118,9 @@ drawStats :: Game -> Widget Name
 drawStats g =
   hLimit 11 $
     vBox
-      [ drawScore (g ^. score),
+      [ 
+        drawHighestScore g,
+        padTop (Pad 2) $ drawScore (g ^. score),
         padTop (Pad 2) $ drawGameOver (g ^. dead)
       ]
 
@@ -128,6 +131,16 @@ drawScore n =
       C.hCenter $
         padAll 1 $
           str $ show n
+
+drawHighestScore :: Game -> Widget Name
+drawHighestScore g =
+  withBorderStyle BS.unicodeBold $
+    B.borderWithLabel (str "Highest") $
+      C.hCenter $
+        padAll 1 $
+          str $ show s
+          where 
+            (_,s:_) = splitAt (g ^. level) (g ^. highestScore)
 
 drawGameOver :: Bool -> Widget Name
 drawGameOver dead =
@@ -188,7 +201,6 @@ drawHelp =
               , (" " , " ")
               , ("Yellow Blocks",  "+10pt")
               , ("Red Blocks",     "-20pt")
-
               ]
 
 drawKeyInfo :: String -> String -> Widget Name
