@@ -41,4 +41,24 @@ We intend to use below libraries for this project.
 2. The second problem we meet is the use of the Brick and Graphics library. Since it is the first time for us to implement game engine using this library, it wasn't easy to get familiar with it and know how to use its feature. To solve this challenge, we searched the Internet and found relevant tutorials, including videos and texts. During the learning process, we understood and became familiar with the basic functions and features of this library. Additionally, we came up with new ideas about how to build our games easier with this library.
 3. Another issue is the how to move character smoothly. When users move the character on the terminal to collect bricks, we need to determine how to set up the reassignment of the character to make it move smoothly. After discussions and implementation, we decided to make the reassignment happen once per tick, making the character move smoothly under the control of players.
 4. At this point, we also meet problems including how to generate multiple bricks, how to generate more bad bricks depends on the difficulty level users choose, how to control the speed of different blocks and how to let users choose different difficult levels, which are waited for us to solve.
+
 ### Current Progress
+We have met with certain challenges that are quite difficult to tackle, but we expect that the project could be finished by the deadline.
+
+For the time being, we have completed the following parts of the game:
+
+1. Keyboard bindings (left and right arrow keys to facilitate the position changes);
+2. UI desgining
+    1. Level of difficulty selection;
+    2. Game pause and resume button;
+    3. Main character, good bricks, bad bricks;
+    4. Score borad of the user;
+
+The following parts should be implemented next:
+
+1. Default character movement 
+2. Default bricks movement (good and bad bricks);
+3. Collision detection and processing
+4. Game Exit Triggering
+5. Scoring of each round of game (measured by round lasting time)
+    
