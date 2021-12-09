@@ -16,6 +16,7 @@ stack install CnD --local-bin-path ""
 ``
 
 # Mile Stone I
+deadline: 11/12
 
 ### Project Description
 
@@ -30,6 +31,7 @@ There are two types of bricks falling from the top of the terminal screen, a yel
 The player can only use the "<-" and "->" to manipulate the character to move left or right. "r" can help restart the game and "q" helps to quit the game.
 
 # Mile Stone II
+deadline: 11/25
 
 ### Libraries
 
