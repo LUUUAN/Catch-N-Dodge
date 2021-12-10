@@ -112,25 +112,34 @@ targetBlockGap = 2 * targetGoodDelay
 -- Functions
 
 -- | Step forward in time
-step :: Game -> Game
-step s = flip execState s . runMaybeT $ do
-  -- Make sure the game is not paused or game over
-  MaybeT $ guard . not <$> orM [use dead]
-  -- Update the score if the player consume a good block
-  MaybeT (Just <$> modify consumeGoodBlocks)
-  -- Update the score if the player consume a bad block
-  MaybeT (Just <$> modify consumeBadBlocks)
-  -- Increment the curProgress
-  MaybeT (Just <$> modify advanceTime)
-  -- if the counter is equal to curProgress, then the game is over
-  MaybeT (Just <$> modify setGameOver)
-  --- Drop the blocks for each tick
-  MaybeT (Just <$> modify moveBlocks)
-  --- Randomly Generate nextBlock
-  MaybeT (Just <$> modify nextBlock)
-  MaybeT (Just <$> modify updateBlockCnt)
-  MaybeT (Just <$> modify updateBlockGap)
-  MaybeT (Just <$> modify updateDelay)
+-- step :: Game -> Game
+-- step s = flip execState s . runMaybeT $ do
+--   -- Make sure the game is not paused or game over
+--   MaybeT $ guard . not <$> orM [use dead]
+--   -- Update the score if the player consume a good block
+--   MaybeT (Just <$> modify consumeGoodBlocks)
+--   -- Update the score if the player consume a bad block
+--   MaybeT (Just <$> modify consumeBadBlocks)
+--   -- Increment the curProgress
+--   MaybeT (Just <$> modify advanceTime)
+--   -- if the counter is equal to curProgress, then the game is over
+--   MaybeT (Just <$> modify setGameOver)
+--   --- Drop the blocks for each tick
+--   MaybeT (Just <$> modify moveBlocks)
+--   --- Randomly Generate nextBlock
+--   MaybeT (Just <$> modify nextBlock)
+--   MaybeT (Just <$> modify updateBlockCnt)
+--   MaybeT (Just <$> modify updateBlockGap)
+--   MaybeT (Just <$> modify updateDelay)
+
+-- step g = fromMaybe g $ do
+--   guard ( not (g^.dead) )
+--   return (stepHelper g)
+
+step g = if g^.dead then g else stepHelper g
+
+stepHelper:: Game -> Game
+stepHelper = consumeGoodBlocks . consumeBadBlocks . advanceTime . setGameOver . moveBlocks . nextBlock . updateBlockCnt . updateBlockGap . updateDelay
 
 consumeGoodBlocks :: Game -> Game
 consumeGoodBlocks g =
