@@ -2,9 +2,10 @@ module Main where
 
 import CnD (Game (..))
 import Options.Applicative
+import System.IO
 import UI.Game (playGame)
 import UI.PickLevel (pickLevel)
-import System.IO
+
 -- import Control.Monad (when)
 -- import qualified System.Directory as D
 -- import System.Exit (exitSuccess)
@@ -38,7 +39,7 @@ fullopts =
   info
     (helper <*> opts)
     ( fullDesc
-        <> header "NSShaft - the iconic game right in your terminal"
+        <> header "CnD - the iconic game right in your terminal"
     )
 
 main :: IO ()
@@ -48,7 +49,7 @@ main = do
   l <- maybe pickLevel return ml -- pick level prompt if necessary
   prevScores <- readScores
   g <- playGame l prevScores -- play game
-  handleEndGame (_score g) (_level g) (_highestScore g)-- save & print score
+  handleEndGame (_score g) (_level g) (_highestScore g) -- save & print score
 
 handleEndGame :: Int -> Int -> [Int] -> IO ()
 handleEndGame s l scores = do
@@ -65,37 +66,36 @@ printM :: Show a => Maybe a -> IO ()
 printM Nothing = putStrLn "None"
 printM (Just s) = print s
 
-
 writeScores :: String -> IO ()
-writeScores s = do 
-                scoreFile <- openFile "src/numbers.txt" WriteMode
-                hPutStrLn scoreFile s
-                hClose scoreFile
+writeScores s = do
+  scoreFile <- openFile "src/numbers.txt" WriteMode
+  hPutStrLn scoreFile s
+  hClose scoreFile
 
-scoresToString :: [Int] -> String 
+scoresToString :: [Int] -> String
 scoresToString [] = ""
-scoresToString (h:t) = show h ++ " " ++  scoresToString t
+scoresToString (h : t) = show h ++ " " ++ scoresToString t
 
-getHighScore :: Int -> [Int] -> Int 
+getHighScore :: Int -> [Int] -> Int
 getHighScore l scores = s
-  where (_,s:_) = splitAt l scores
+  where
+    (_, s : _) = splitAt l scores
 
-
-setHighScore :: Int -> Int -> [Int] -> [Int] 
+setHighScore :: Int -> Int -> [Int] -> [Int]
 setHighScore newHighestScore l scores = s
-  where (x,_:y) = splitAt l scores
-        s = x ++ [newHighestScore] ++ y
+  where
+    (x, _ : y) = splitAt l scores
+    s = x ++ [newHighestScore] ++ y
 
 getNumbers :: String -> [Int]
-getNumbers str =  map (read::String->Int) (words str)
+getNumbers str = map (read :: String -> Int) (words str)
 
 readScores :: IO [Int]
 readScores = do
-    contents <- readFile "src/numbers.txt"
-    putStrLn contents
-    let numbers = getNumbers contents
-    return numbers
-
+  contents <- readFile "src/numbers.txt"
+  putStrLn contents
+  let numbers = getNumbers contents
+  return numbers
 
 -- getHighScore :: IO (Maybe Int)
 -- getHighScore = do
