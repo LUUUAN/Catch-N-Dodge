@@ -19,7 +19,6 @@ module CnD
     badBlocks,
     level,
     highestScore,
-    stopPlayer,
     translateCoord,
     isInBounds,
     shift,
@@ -63,8 +62,6 @@ data Game = Game
     _dir :: Direction,
     -- | game over flag
     _dead :: Bool,
-    -- | paused flag
-    _paused :: Bool,
     -- | score
     _score :: Int,
     -- | lock to disallow duplicate turns between time steps
@@ -113,7 +110,7 @@ targetBlockGap = 2 * targetGoodDelay
 step :: Game -> Game
 step s = flip execState s . runMaybeT $ do
   -- Make sure the game is not paused or game over
-  MaybeT $ guard . not <$> orM [use paused, use dead]
+  MaybeT $ guard . not <$> orM [use dead]
   -- Update the score if the player consume a good block
   MaybeT (Just <$> modify consumeGoodBlocks)
   -- Update the score if the player consume a bad block
@@ -129,15 +126,6 @@ step s = flip execState s . runMaybeT $ do
   MaybeT (Just <$> modify updateBlockCnt)
   MaybeT (Just <$> modify updateBlockGap)
   MaybeT (Just <$> modify updateDelay)
-
--- die (moved into boundary), eat (moved into food), or move (move into space)
--- die <|> MaybeT (Just <$> modify move)
-
--- -- | Possibly die if next head position is in snake
--- die :: MaybeT (State Game) ()
--- die = do
---   MaybeT . fmap guard $ elem <$> (nextHead <$> get) <*> (use snake)
---   MaybeT . fmap Just $ dead .= True
 
 consumeGoodBlocks :: Game -> Game
 consumeGoodBlocks g =
@@ -212,10 +200,6 @@ movePlayer dir g = do
   if isInBounds newCoord
     then g & player .~ newCoord
     else g
-
-stopPlayer :: Direction -> Game -> Game
-stopPlayer dir g@Game {} = do
-  g
 
 -- | Gravitate the block
 moveBlocks :: Game -> Game
@@ -328,7 +312,6 @@ initGame lvl scores = do
             _score = 0,
             _dir = East,
             _dead = False,
-            _paused = False,
             _locked = False,
             _goodBlocks = S.fromList [b],
             _badBlocks = S.fromList [],
