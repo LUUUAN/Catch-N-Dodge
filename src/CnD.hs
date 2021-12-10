@@ -20,6 +20,9 @@ module CnD
     level,
     highestScore,
     stopPlayer,
+    translateCoord,
+    isInBounds,
+    shift,
   )
 where
 
@@ -204,15 +207,14 @@ translateCoord n North (V2 x y) = V2 x (y + n)
 translateCoord n South (V2 x y) = V2 x (y - n)
 
 movePlayer :: Direction -> Game -> Game
-movePlayer dir g@Game {_player = t} = do
-  let newCoord = translateCoord 1 dir t
+movePlayer dir g = do
+  let newCoord = translateCoord 1 dir (g ^. player)
   if isInBounds newCoord
     then g & player .~ newCoord
     else g
-movePlayer _ _ = error "Players can't be empty!"
 
-stopPlayer :: Direction -> Game -> Game 
-stopPlayer dir g@Game{} = do
+stopPlayer :: Direction -> Game -> Game
+stopPlayer dir g@Game {} = do
   g
 
 -- | Gravitate the block
