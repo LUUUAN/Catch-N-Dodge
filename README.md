@@ -50,11 +50,11 @@ We intend to use below libraries for this project.
 
 Our project is composed of four src files, including `Main.hs`, `CnD.hs`, `PickLevel.hs` and `Game.hs`.
 
-Inside `NSShaft.hs`, we define the main character and two types of bricks. We also plan to implement bricks and character movement control as well as the score calculation function in this file
+Inside `CnD.hs`, we define the main character and two types of bricks. We also plan to implement bricks and character movement control as well as the score calculation function in this file
 
 we define the main character and three types of bricks that have different functionalities. We also plan to implement bricks and character movement control as well as the score calculation function in this file.
 
-PickLevel.hs illustrates the basic UI when user starts the game and selects the difficult level.
+`PickLevel.hs` illustrates the basic UI when user starts the game and selects the difficult level.
 
 `Game.hs` contains user interfaces for the game page. We design event handlers to coop with the character movement command, the pause command, and the quit game command.
 
