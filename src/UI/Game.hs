@@ -86,15 +86,32 @@ playGame ::
   Int -> [Int] ->
   IO Game
 playGame lvl scores = do
+  let delay = levelToDelay lvl
   chan <- newBChan 10
   forkIO $
     forever $ do
       writeBChan chan Tick
-      threadDelay 200000 -- decides how fast your game moves
+      threadDelay delay -- decides how fast your game moves
   initG <- initGame lvl scores
   let builder = V.mkVty V.defaultConfig
   initialVty <- builder
   customMain initialVty builder (Just chan) app initG
+
+
+-- change thread delay according to game level
+levelToDelay :: Int -> Int
+levelToDelay n 
+      | n == 0 = 200000
+      | n == 1 = floor $ 200000 / 1.65
+      | n == 2 = floor $ 200000 / 1.70
+      | n == 3 = floor $ 200000 / 1.81
+      | n == 4 = floor $ 200000 / 1.92
+      | n == 5 = floor $ 200000 / 2.10
+      | n == 6 = floor $ 200000 / 2.39
+      | n == 7 = floor $ 200000 / 2.76
+      | n == 8 = floor $ 200000 / 3.19
+      | n == 9 = floor $ 200000 / 3.70
+      | otherwise = floor $ 200000 / 1.55
 
 
 -- Handling events
@@ -112,7 +129,21 @@ handleEvent g _ = continue g
 
 drawUI :: Game -> [Widget Name]
 drawUI g =
-  [((C.center $ (padRight (Pad 2) (drawStats g) <+> drawGrid g)) <=> drawGameProgressBar g) <+> padLeft (Pad 2) drawHelp]
+  [ C.vCenter $ hBox
+      [ padLeft Max $ padRight (Pad 2) $ drawStats g
+      , drawGridNBar g
+      , padRight Max $ padLeft (Pad 1) $ drawHelp
+      ]
+  ]
+
+
+drawGridNBar :: Game -> Widget Name
+drawGridNBar g = hLimit 43 -- horizontal size of the grid and the progress bar
+  $ vBox
+    [ drawGrid g
+    , padTop (Pad 1) $ drawGameProgressBar g
+    ]
+
 
 drawStats :: Game -> Widget Name
 drawStats g =
@@ -186,11 +217,7 @@ drawHelp :: Widget Name
 drawHelp =
   withBorderStyle BS.unicodeBold
     $ B.borderWithLabel (str "Help")
-    $ padTopBottom 1
-    --  $ C.hCenter 
-      -- $ padAll 1 
-        $ vLimit 30 
-          $ hLimit 30 
+          $ hLimit 25 
              $ vBox
               $ map (uncurry drawKeyInfo)
               [ 
@@ -220,7 +247,7 @@ theMap =
       (gameOverAttr, fg V.red `V.withStyle` V.bold),
       (goodBlocksAttr, V.yellow `on` V.yellow),
       (badBlocksAttr, V.red `on` V.red),
-      (gameProgressAttr, V.white `on` V.red)
+      (gameProgressAttr, V.black `on` V.green)
     ]
 
 gameOverAttr :: AttrName
