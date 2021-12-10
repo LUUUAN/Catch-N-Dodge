@@ -118,8 +118,8 @@ levelToDelay n
 
 handleEvent :: Game -> BrickEvent Name Tick -> EventM Name (Next Game)
 handleEvent g (AppEvent Tick) = continue $ step g
-handleEvent g (VtyEvent (V.EvKey V.KRight [])) = continue $ (if g ^. dead then stopPlayer East g else movePlayer East g)
-handleEvent g (VtyEvent (V.EvKey V.KLeft [])) = continue $ (if g ^. dead then stopPlayer West g else movePlayer West g)
+handleEvent g (VtyEvent (V.EvKey V.KRight [])) = continue $ (if g ^. dead then g else movePlayer East g)
+handleEvent g (VtyEvent (V.EvKey V.KLeft [])) = continue $ (if g ^. dead then g else movePlayer West g)
 handleEvent g (VtyEvent (V.EvKey (V.KChar 'r') [])) = liftIO (initGame (g ^. level) (g ^. highestScore )) >>= continue
 handleEvent g (VtyEvent (V.EvKey (V.KChar 'q') [])) = halt g
 handleEvent g (VtyEvent (V.EvKey V.KEsc [])) = halt g
