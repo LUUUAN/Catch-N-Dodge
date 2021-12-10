@@ -2,7 +2,7 @@
 
 # Group Member
 
-Wendi Luan, Yichen Liu, Yingjian Wu, Zhaoxing Lyu
+Wendi Luan, Yichen Liu, Yingjian (Steven) Wu, Zhaoxing Lyu
 
 # Running Instruction
 To run the game, type the following in the terminal (Inside the main folder)
