@@ -33,8 +33,8 @@ import Data.Maybe (fromMaybe)
 import Data.Sequence (Seq (..), (<|))
 import qualified Data.Sequence as S
 import Linear.V2 (V2 (..), _x, _y)
-import System.Random (Random (..), RandomGen, mkStdGen, newStdGen)
 import System.IO
+import System.Random (Random (..), RandomGen, mkStdGen, newStdGen)
 
 -- Types
 
@@ -97,12 +97,11 @@ makeLenses ''Game
 
 -- Constants
 
-height, width, initialBlocksCount, targetBlockGap, targetGoodDelay :: Int
+height, width, targetBlockGap, targetGoodDelay :: Int
 height = 17
 width = 20
-initialBlocksCount = 5
-targetBlockGap = 3
 targetGoodDelay = 2
+targetBlockGap = 2 * targetGoodDelay
 
 -- Functions
 
@@ -137,7 +136,10 @@ step s = flip execState s . runMaybeT $ do
 --   MaybeT . fmap Just $ dead .= True
 
 consumeGoodBlocks :: Game -> Game
-consumeGoodBlocks g = (g & score .~ newScore) & goodBlocks .~ newGoodBlocks
+consumeGoodBlocks g =
+  if null (g ^. goodBlocks)
+    then g
+    else (g & score .~ newScore) & goodBlocks .~ newGoodBlocks
   where
     bs :|> b = g ^. goodBlocks
     newScore
@@ -225,7 +227,7 @@ updateBlockGap g = g & blockGap .~ newGap
   where
     newGap = do
       if g ^. blockGap == targetBlockGap
-        then 0
+        then 1
         else g ^. blockGap + 1
 
 updateBlockCnt :: Game -> Game
@@ -261,56 +263,52 @@ updateDelay g = g & goodBlockDelay .~ newDelay
   where
     newDelay = do
       if g ^. goodBlockDelay == targetGoodDelay
-        then 0
+        then 1
         else g ^. goodBlockDelay + 1
 
-
--- change the ratio of good block and bad block to facilitate change of difficulty 
+-- change the ratio of good block and bad block to facilitate change of difficulty
 levelToBadBlock :: Int -> Int
-levelToBadBlock n 
-      | n == 0 = 1
-      | n == 1 = 1
-      | n == 2 = 1
-      | n == 3 = 1
-      | n == 4 = 1
-      | n == 5 = 2
-      | n == 6 = 3
-      | n == 7 = 4
-      | n == 8 = 5
-      | n == 9 = 6
-      | otherwise = 6 
-
+levelToBadBlock n
+  | n == 0 = 1
+  | n == 1 = 1
+  | n == 2 = 1
+  | n == 3 = 1
+  | n == 4 = 1
+  | n == 5 = 2
+  | n == 6 = 3
+  | n == 7 = 4
+  | n == 8 = 5
+  | n == 9 = 6
+  | otherwise = 6
 
 levelToGoodBlock :: Int -> Int
-levelToGoodBlock n 
-      | n == 0 = 5
-      | n == 1 = 4
-      | n == 2 = 3
-      | n == 3 = 2
-      | n == 4 = 1
-      | n == 5 = 1
-      | n == 6 = 1
-      | n == 7 = 1
-      | n == 8 = 1
-      | n == 9 = 1
-      | otherwise = 1 
+levelToGoodBlock n
+  | n == 0 = 5
+  | n == 1 = 4
+  | n == 2 = 3
+  | n == 3 = 2
+  | n == 4 = 1
+  | n == 5 = 1
+  | n == 6 = 1
+  | n == 7 = 1
+  | n == 8 = 1
+  | n == 9 = 1
+  | otherwise = 1
 
 -- change counter to maintain same playing time for each level
 levelToCounter :: Int -> Float
-levelToCounter n 
-      | n == 0 = 100
-      | n == 1 = 100 * 1.55
-      | n == 2 = 100 * 1.68
-      | n == 3 = 100 * 1.79
-      | n == 4 = 100 * 1.92
-      | n == 5 = 100 * 2.10
-      | n == 6 = 100 * 2.39
-      | n == 7 = 100 * 2.76
-      | n == 8 = 100 * 3.19
-      | n == 9 = 100 * 3.70
-      | otherwise = 100 * 1.15
-
-
+levelToCounter n
+  | n == 0 = 100
+  | n == 1 = 100 * 1.55
+  | n == 2 = 100 * 1.68
+  | n == 3 = 100 * 1.79
+  | n == 4 = 100 * 1.92
+  | n == 5 = 100 * 2.10
+  | n == 6 = 100 * 2.39
+  | n == 7 = 100 * 2.76
+  | n == 8 = 100 * 3.19
+  | n == 9 = 100 * 3.70
+  | otherwise = 100 * 1.15
 
 -- | Initialize a paused game with random block location
 initGame :: Int -> [Int] -> IO Game
@@ -344,9 +342,8 @@ initGame lvl scores = do
 fromList :: [a] -> Stream a
 fromList = foldr (:|) (error "Streams must be infinite")
 
-
--- updateHighestScore :: Game -> Game 
+-- updateHighestScore :: Game -> Game
 -- updateHighestScore  g = g & highestScore .~ newHighestScore
---                           where 
+--                           where
 --                             (x,prevScore:y) = splitAt (g ^. level) (g ^. highestScore)
 --                             newHighestScore = if (g ^. score) <=  prevScore then g ^. highestScore else x ++ [g ^. score] ++ y
