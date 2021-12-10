@@ -5,14 +5,16 @@
 Wendi Luan, Yichen Liu, Yingjian Wu, Zhaoxing Lyu
 
 # Running Instruction
+To run the game, type the following in the terminal (Inside the main folder)
 
 ``
-stack install CnD --local-bin-path ""
+cabal run CnD
 ``
 
+To run the test, type the following in the terminal (Inside the main folder)
 
 ``
-./CnD
+cabal run CnD-test
 ``
 
 # Milestone I
