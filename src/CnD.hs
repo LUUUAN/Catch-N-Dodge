@@ -23,6 +23,11 @@ module CnD
     translateCoord,
     isInBounds,
     shift,
+    consumeGoodBlocks,
+    consumeBadBlocks,
+    moveBlocks,
+    updateDelay,
+    goodBlockDelay,
   )
 where
 
