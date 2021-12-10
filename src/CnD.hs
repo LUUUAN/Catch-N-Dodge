@@ -19,6 +19,7 @@ module CnD
     badBlocks,
     level,
     highestScore,
+    stopPlayer,
   )
 where
 
@@ -169,7 +170,7 @@ advanceTime :: Game -> Game
 advanceTime g = g & curProgress .~ ((g ^. curProgress) + 1)
 
 setGameOver :: Game -> Game
-setGameOver g = if (g ^. counter) == (g ^. curProgress) then g & dead .~ True else g
+setGameOver g = if (g ^. counter) <= (g ^. curProgress) then g & dead .~ True else g
 
 -- | Insert a new block at the top of the game if blockGap satisfied
 nextBlock :: Game -> Game
@@ -209,6 +210,10 @@ movePlayer dir g@Game {_player = t} = do
     then g & player .~ newCoord
     else g
 movePlayer _ _ = error "Players can't be empty!"
+
+stopPlayer :: Direction -> Game -> Game 
+stopPlayer dir g@Game{} = do
+  g
 
 -- | Gravitate the block
 moveBlocks :: Game -> Game

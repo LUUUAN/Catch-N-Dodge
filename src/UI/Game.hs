@@ -100,7 +100,7 @@ playGame lvl scores = do
 
 -- change thread delay according to game level
 levelToDelay :: Int -> Int
-levelToDelay n 
+levelToDelay n
       | n == 0 = 200000
       | n == 1 = floor $ 200000 / 1.65
       | n == 2 = floor $ 200000 / 1.70
@@ -118,8 +118,8 @@ levelToDelay n
 
 handleEvent :: Game -> BrickEvent Name Tick -> EventM Name (Next Game)
 handleEvent g (AppEvent Tick) = continue $ step g
-handleEvent g (VtyEvent (V.EvKey V.KRight [])) = continue $ movePlayer East g
-handleEvent g (VtyEvent (V.EvKey V.KLeft [])) = continue $ movePlayer West g
+handleEvent g (VtyEvent (V.EvKey V.KRight [])) = continue $ (if g ^. dead then stopPlayer East g else movePlayer East g)
+handleEvent g (VtyEvent (V.EvKey V.KLeft [])) = continue $ (if g ^. dead then stopPlayer West g else movePlayer West g)
 handleEvent g (VtyEvent (V.EvKey (V.KChar 'r') [])) = liftIO (initGame (g ^. level) (g ^. highestScore )) >>= continue
 handleEvent g (VtyEvent (V.EvKey (V.KChar 'q') [])) = halt g
 handleEvent g (VtyEvent (V.EvKey V.KEsc [])) = halt g
@@ -149,7 +149,7 @@ drawStats :: Game -> Widget Name
 drawStats g =
   hLimit 11 $
     vBox
-      [ 
+      [
         drawHighestScore g,
         padTop (Pad 2) $ drawScore (g ^. score),
         padTop (Pad 2) $ drawGameOver (g ^. dead)
@@ -170,7 +170,7 @@ drawHighestScore g =
       C.hCenter $
         padAll 1 $
           str $ show s
-          where 
+          where
             (_,s:_) = splitAt (g ^. level) (g ^. highestScore)
 
 drawGameOver :: Bool -> Widget Name
@@ -217,10 +217,10 @@ drawHelp :: Widget Name
 drawHelp =
   withBorderStyle BS.unicodeBold
     $ B.borderWithLabel (str "Help")
-          $ hLimit 25 
+          $ hLimit 25
              $ vBox
               $ map (uncurry drawKeyInfo)
-              [ 
+              [
                 ("Move Left"   , "←")
               , ("Move Right"  , "→")
               , ("Restart Game", "r")
