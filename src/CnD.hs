@@ -139,7 +139,7 @@ targetBlockGap = 2 * targetGoodDelay
 step g = if g^.dead then g else stepHelper g
 
 stepHelper:: Game -> Game
-stepHelper = consumeGoodBlocks . consumeBadBlocks . advanceTime . setGameOver . moveBlocks . nextBlock . updateBlockCnt . updateBlockGap . updateDelay
+stepHelper = updateDelay . updateBlockGap . updateBlockCnt . nextBlock . moveBlocks . setGameOver . advanceTime . consumeBadBlocks . consumeGoodBlocks
 
 consumeGoodBlocks :: Game -> Game
 consumeGoodBlocks g =
