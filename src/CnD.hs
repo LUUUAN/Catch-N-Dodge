@@ -65,6 +65,10 @@ data Game = Game
     _score :: Int,
     -- | lock to disallow duplicate turns between time steps
     _locked :: Bool,
+    -- | designated number of good block each turn
+    _goodPerTurn :: Int,
+    -- | designated number of bad block each turn
+    _badPerTurn :: Int,
     -- | good block counter in current iteration
     _goodCntPerTurn :: Int,
     -- | bad block counter in current iteration
@@ -93,13 +97,11 @@ makeLenses ''Game
 
 -- Constants
 
-height, width, initialBlocksCount, targetBlockGap, goodPerTurn, badPerTurn, targetGoodDelay :: Int
+height, width, initialBlocksCount, targetBlockGap, targetGoodDelay :: Int
 height = 17
 width = 20
 initialBlocksCount = 5
 targetBlockGap = 3
-goodPerTurn = 3
-badPerTurn = 7
 targetGoodDelay = 2
 
 -- Functions
@@ -174,9 +176,9 @@ nextBlock g = (g' & goodBlocks .~ newGoodBlocks) & badBlocks .~ newBadBlocks
     (b :| bs) = g ^. blockStore
     g' = g & blockStore .~ bs
     isBad = do
-      if g ^. badCntPerTurn < badPerTurn && g ^. goodCntPerTurn < goodPerTurn
+      if g ^. badCntPerTurn < g ^. badPerTurn && g ^. goodCntPerTurn < g ^. goodPerTurn
         then g ^. badCntPerTurn < g ^. goodCntPerTurn
-        else g ^. badCntPerTurn < badPerTurn
+        else g ^. badCntPerTurn < g ^. badPerTurn
     newBadBlocks = do
       if isBad && g ^. blockGap == targetBlockGap
         then S.insertAt 0 b (g' ^. badBlocks)
@@ -230,13 +232,13 @@ updateBlockCnt :: Game -> Game
 updateBlockCnt g = (g & goodCntPerTurn .~ gCnt) & badCntPerTurn .~ bCnt
   where
     isBad = do
-      if g ^. badCntPerTurn < badPerTurn && g ^. goodCntPerTurn < goodPerTurn
+      if g ^. badCntPerTurn < g ^. badPerTurn && g ^. goodCntPerTurn < g ^. goodPerTurn
         then g ^. badCntPerTurn < g ^. goodCntPerTurn
-        else g ^. badCntPerTurn < badPerTurn
+        else g ^. badCntPerTurn < g ^. badPerTurn
     gCnt = do
       if g ^. blockGap == targetBlockGap
         then
-          if g ^. goodCntPerTurn + g ^. badCntPerTurn + 1 == goodPerTurn + badPerTurn
+          if g ^. goodCntPerTurn + g ^. badCntPerTurn + 1 == g ^. goodPerTurn + g ^. badPerTurn
             then 0
             else
               if not isBad
@@ -246,7 +248,7 @@ updateBlockCnt g = (g & goodCntPerTurn .~ gCnt) & badCntPerTurn .~ bCnt
     bCnt = do
       if g ^. blockGap == targetBlockGap
         then
-          if g ^. goodCntPerTurn + g ^. badCntPerTurn + 1 == goodPerTurn + badPerTurn
+          if g ^. goodCntPerTurn + g ^. badCntPerTurn + 1 == g ^. goodPerTurn + g ^. badPerTurn
             then 0
             else
               if isBad
@@ -261,6 +263,54 @@ updateDelay g = g & goodBlockDelay .~ newDelay
       if g ^. goodBlockDelay == targetGoodDelay
         then 0
         else g ^. goodBlockDelay + 1
+
+
+-- change the ratio of good block and bad block to facilitate change of difficulty 
+levelToBadBlock :: Int -> Int
+levelToBadBlock n 
+      | n == 0 = 1
+      | n == 1 = 1
+      | n == 2 = 1
+      | n == 3 = 1
+      | n == 4 = 1
+      | n == 5 = 2
+      | n == 6 = 3
+      | n == 7 = 4
+      | n == 8 = 5
+      | n == 9 = 6
+      | otherwise = 6 
+
+
+levelToGoodBlock :: Int -> Int
+levelToGoodBlock n 
+      | n == 0 = 5
+      | n == 1 = 4
+      | n == 2 = 3
+      | n == 3 = 2
+      | n == 4 = 1
+      | n == 5 = 1
+      | n == 6 = 1
+      | n == 7 = 1
+      | n == 8 = 1
+      | n == 9 = 1
+      | otherwise = 1 
+
+-- change counter to maintain same playing time for each level
+levelToCounter :: Int -> Float
+levelToCounter n 
+      | n == 0 = 100
+      | n == 1 = 100 * 1.55
+      | n == 2 = 100 * 1.68
+      | n == 3 = 100 * 1.79
+      | n == 4 = 100 * 1.92
+      | n == 5 = 100 * 2.10
+      | n == 6 = 100 * 2.39
+      | n == 7 = 100 * 2.76
+      | n == 8 = 100 * 3.19
+      | n == 9 = 100 * 3.70
+      | otherwise = 100 * 1.15
+
+
 
 -- | Initialize a paused game with random block location
 initGame :: Int -> [Int] -> IO Game
@@ -278,10 +328,12 @@ initGame lvl scores = do
             _goodBlocks = S.fromList [b],
             _badBlocks = S.fromList [],
             _blockGap = 0,
+            _goodPerTurn = levelToGoodBlock lvl,
+            _badPerTurn = levelToBadBlock lvl,
             _badCntPerTurn = 0,
             _goodCntPerTurn = 0,
             _blockStore = bs,
-            _counter = 100,
+            _counter = levelToCounter lvl,
             _curProgress = 0,
             _goodBlockDelay = 0,
             _level = lvl,
